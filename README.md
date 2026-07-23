@@ -26,7 +26,7 @@ For the **inbound** flow, content originates **outside** ServiceNow — ServiceN
 
 ## Prerequisites
 
-1. **All 9 Stream Connect gate plugins active** (`stream_connect.direct_kafka`, `action_step.kafka`, `etl_consumer.kafka`, `flow_trigger.kafka`, `kafka_consumer`, `stream_connect.alerting`, `stream_connect.common.core`, `stream_connect.schema`, `stream_connect.kafka_connection`). Activate the master installer `com.glide.hub.stream_connect.onprem_installer` to pull them in; verify with `GlidePluginManager.isActive()`.
+1. **All 9 Stream Connect gate plugins active** (`stream_connect.direct_kafka`, `action_step.kafka`, `etl_consumer.kafka`, `flow_trigger.kafka`, `kafka_consumer`, `stream_connect.alerting`, `stream_connect.common.core`, `stream_connect.schema`, `stream_connect.kafka_connection`). Activate the master installer `com.glide.hub.stream_connect.onprem_installer`, then **verify each of the 9 with `GlidePluginManager.isActive()` and activate any that didn't come up** — the installer does not reliably bring them all active (`flow_trigger.kafka` required a separate activation).
 2. **Roles on the operating user:** `stream_connect_admin`, `stream_connect_api`, `kafka_admin`.
 3. **Confluent Cloud side** — topics + ACLs configured (see next section).
 
@@ -44,15 +44,16 @@ For the **inbound** flow, content originates **outside** ServiceNow — ServiceN
 
 ### 2. Create an API key
 
-1. In the cluster, open **API Keys** → **Add key** (a Kafka API key scoped to this cluster).
-2. Scope: **Service account** (recommended for integrations — decouples from any person) or **My account**.
-3. Confluent shows the **key** and **secret** — the **secret is displayed once**; download/copy both. Key = username, secret = password for the ServiceNow credential (step 1 of the config chain).
+1. In the cluster: **Cluster Overview → API keys → + Add key**.
+2. Scope: **Granular access** → **Next**.
+3. Owner: **Create a new one** (a new service account — recommended for integrations) or **Use existing account**.
+4. Confluent shows the **key** and **secret** — the **secret is displayed once**; download/copy both. Key = username, secret = password for the ServiceNow credential (step 1 of the config chain).
 
 > Match the cluster's auth to the ServiceNow credential: for a Confluent Cloud API key that's `SASL_SSL` / `PLAIN` with key=username, secret=password (see ServiceNow config chain, step 1).
 
 ### 3. Topics + ACLs
 
-**Topics** (3 partitions, RF 3): `cmdb.ci.inbound`, `cmdb.ci.outbound`.
+**Topics**: `cmdb.ci.inbound`, `cmdb.ci.outbound` — 3 partitions each. (Confluent Cloud fixes replication factor at 3; it's not a setting you choose.)
 
 **ACLs for the API-key principal** (all `ALLOW`):
 
@@ -82,9 +83,7 @@ For the **inbound** flow, content originates **outside** ServiceNow — ServiceN
 
   `correlation_id` is the only required field (it's the upsert key); the rest are mapped if present.
 
-  `correlation_id` is the only required field (it's the upsert key); the rest are mapped if present.
-
-The two bullets above are fixed by the ServiceNow consumer, so they're firm. The rest of the producing side is **not**:
+The **topic** and the **message value contract** above are fixed by the ServiceNow consumer. Everything else on the producing side is **not** dictated here:
 
 - **Key / partitioning, publish cadence (e.g. on CI create/update), and the source's own auth model** are decided by whoever owns the source system and should be confirmed with that team — this runbook doesn't cover the producing application's internal config. Treat any specifics here as suggested defaults (standard Kafka practice), not requirements.
 
